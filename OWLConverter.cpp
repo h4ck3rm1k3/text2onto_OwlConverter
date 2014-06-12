@@ -1,10 +1,4 @@
-//
-//  main.c
-//  OWLConverter
-//
-//  Created by TJ on 12/06/14.
-//  Copyright (c) 2014 TJ. All rights reserved.
-//
+// g++ --std=c++11 OWLConverter.cpp -o OWLConverter
 
 #include <string>
 #include <stdio.h>
@@ -21,7 +15,7 @@ ofstream outfile;
 double threshold=0;
 
 void showInfo(string path){
-    cerr<<"Usage:\n"<<path<<" <OWL File> <THRESHOLD>";
+    cerr<<"Usage:\n"<<path<<" <OWL File> <THRESHOLD>"<<endl;
     exit(-1);
 }
 
@@ -86,6 +80,14 @@ void convertAndWriteRelation(vector<string> toConvert){
     }
 }
 
+void convertAndwriteSubconcept(vector<string> toConvert){
+    if (outfile.is_open()) {
+        if (isOverThreshold(toConvert)) {
+            outfile<<"<owl:Class rdf:about=\"http://www.text2onto.org/ontology"<<getStringBetween(toConvert.at(3), "\"", "_c\"")<<"\">\n<rdfs:subClassOf rdf:resource=\"http://www.text2onto.org/ontology"<<getStringBetween(toConvert.at(4), "\"", "_c\"")<<"\"/>\n</owl:Class>"<<endl;
+        }
+    }
+}
+
 string convertBlock(vector<string> toConvert){
     string converted = "";
     if (toConvert.size() > 0 && toConvert.at(0).find("<a:Instance ") == 0) {
@@ -95,8 +97,9 @@ string convertBlock(vector<string> toConvert){
         convertAndWriteConcept(toConvert);
     }else if (toConvert.size() > 0 && toConvert.at(0).find("<a:Relation ") == 0) {
         convertAndWriteRelation(toConvert);
+    }else if (toConvert.size() > 0 && toConvert.at(0).find("<a:SubclassOf ") == 0) {
+        convertAndwriteSubconcept(toConvert);
     }
-    //TODO else if Concept, Relation, ...
     return converted;
 }
 
@@ -114,7 +117,7 @@ void writePostfix(){
 
 void convert(string filepath){
     vector<string> block;
-    cout<<"Start converting "<<filepath<<" with threshold "<<threshold<<endl;
+    cout<<"-=: start converting :=-"<<endl;
     if(!infile.is_open()) infile.open(filepath);
     if(!outfile.is_open()) outfile.open(filepath.append("_converted.owl"), ofstream::out);
     writePrefix();
@@ -127,7 +130,7 @@ void convert(string filepath){
     writePostfix();
     infile.close();
     outfile.close();
-    cout<<"Conversion finished"<<endl;
+    cout<<"-=: finished :=-"<<endl;
 }
 
 int main(int argc, const char * argv[]){
