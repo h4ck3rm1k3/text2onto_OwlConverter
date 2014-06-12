@@ -12,6 +12,7 @@
 #include <vector>
 #include <sstream>
 #include <fstream>
+#include <regex>
 
 using namespace std;
 
@@ -24,10 +25,17 @@ void showInfo(string path){
     exit(-1);
 }
 
-string deleteTags(string in){
-    int begin = in.find(">") + 1;
-    int end = in.find("<", begin);
-    return in.substr(begin, end-begin);
+string getStringBetween(string source, string first, string second){
+    int begin = source.find(first) + 1;
+    int end = source.find(second, begin);
+    string ret = source.substr(begin, end-begin);
+
+    //replace special characters
+    replace(ret.begin(), ret.end(), ' ', '_'); //space
+    ret = regex_replace(ret, regex(">"), "[LOWER_THAN]"); //lower than
+    ret = regex_replace(ret, regex("<"), "[GREATER_THAN]"); //greater than
+    ret = regex_replace(ret, regex("%"), "[PERCENT]"); //greater than
+    return ret;
 }
 
 vector<string> nextBlock(){
@@ -44,9 +52,9 @@ vector<string> nextBlock(){
 
 bool isOverThreshold(vector<string> block){
     if (block.size() > 1) {
-        string temp = deleteTags(block.at(1));
+        string temp = getStringBetween(block.at(1), ">", "<");
         double number = stod(temp);
-        if(number > threshold){
+        if(number >= threshold){
             return true;
         }
     }
@@ -57,7 +65,23 @@ bool isOverThreshold(vector<string> block){
 void convertAndWriteConcept(vector<string> toConvert){
     if (outfile.is_open()) {
         if (isOverThreshold(toConvert)) {
-            outfile<<"<owl:Class rdf:about=\"http://www.text2onto.org/ontology#"<<deleteTags(toConvert.at(2))<<"\"/>"<<endl;
+            outfile<<"<owl:Class rdf:about=\"http://www.text2onto.org/ontology#"<<getStringBetween(toConvert.at(2), ">", "<")<<"\"/>"<<endl;
+        }
+    }
+}
+
+void convertAndWriteIndividual(vector<string> toConvert){
+    if (outfile.is_open()) {
+        if (isOverThreshold(toConvert)) {
+            outfile<<"<owl:NamedIndividual rdf:about=\"http://www.text2onto.org/ontology#"<<getStringBetween(toConvert.at(2), ">", "<")<<"\"/>"<<endl;
+        }
+    }
+}
+
+void convertAndWriteRelation(vector<string> toConvert){
+    if (outfile.is_open()) {
+        if (isOverThreshold(toConvert)) {
+            outfile<<"<owl:ObjectProperty rdf:about=\"http://www.text2onto.org/ontology#"<<getStringBetween(toConvert.at(2), ">", "<")<<"\">\n<rdfs:domain rdf:resource=\"http://www.text2onto.org/ontology"<<getStringBetween(toConvert.at(3), "\"", "_c\"")<<"\"/>\n<rdfs:range rdf:resource=\"http://www.text2onto.org/ontology"<< getStringBetween(toConvert.at(4), "\"", "_c\"") <<"\"/>\n</owl:ObjectProperty>"<<endl;
         }
     }
 }
@@ -65,10 +89,12 @@ void convertAndWriteConcept(vector<string> toConvert){
 string convertBlock(vector<string> toConvert){
     string converted = "";
     if (toConvert.size() > 0 && toConvert.at(0).find("<a:Instance ") == 0) {
+        convertAndWriteIndividual(toConvert);
     }else if (toConvert.size() > 0 && toConvert.at(0).find("<a:InstanceOf ") == 0) {
     }else if (toConvert.size() > 0 && toConvert.at(0).find("<a:Concept ") == 0) {
         convertAndWriteConcept(toConvert);
     }else if (toConvert.size() > 0 && toConvert.at(0).find("<a:Relation ") == 0) {
+        convertAndWriteRelation(toConvert);
     }
     //TODO else if Concept, Relation, ...
     return converted;
